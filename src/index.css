@@ -1,0 +1,287 @@
+.voice-tool {
+  text-align: center;
+  --bg-color: #cdd1e0;
+  --front-color: #388ae5;
+  --border-color: #e8e8eb;
+
+  &__record-component {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    button {
+      background: 0 0;
+      background-image: none;
+      outline: 0;
+      border: 0;
+      cursor: pointer;
+      padding: 0;
+    }
+    .btn-pause-record {
+      border-radius: 50%;
+      width: 0;
+      height: 0;
+      background-color: rgba(0, 0, 0, 0.05);
+      box-sizing: border-box;
+      transition: all 0.2s;
+      position: relative;
+      font-size: 0;
+      margin-left: 10px;
+      opacity: 0;
+      visibility: hidden;
+    }
+    .btn-record {
+      cursor: pointer;
+      border-radius: 50%;
+      min-width: 60px;
+      height: 60px;
+      background-color: rgba(0, 0, 0, 0.05);
+      box-sizing: border-box;
+      transition: all 0.2s;
+      position: relative;
+      font-size: 0;
+      margin-left: 10px;
+      display: inline-block;
+      padding: 0 10px;
+      &:hover .icn-record {
+        transform: translate(-50%, -50%) scale(1.15, 1.15);
+      }
+      & .record-timer {
+        position: absolute;
+        transform: translate(0, -50%);
+        top: 50%;
+        right: 10px;
+        left: 44px;
+        text-align: center;
+        opacity: 0;
+        font-size: 13px;
+        font-weight: 400;
+        color: #f03;
+        transition: opacity 0.2s;
+      }
+      & .icn-record {
+        font-size: 0;
+        display: block;
+        padding: 0;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background-color: #f03;
+        box-sizing: border-box;
+        transition: background-color 0.2s, opacity 0.2s, transform 0.2s;
+        transform-origin: center center;
+        transform: translate(-50%, -50%);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        box-shadow: 0 2px 4px 0 rgb(0 0 0 / 20%);
+
+        & .icn-record-inner {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          transform-origin: center center;
+          top: 50%;
+          left: 50%;
+          transition: all 0.2s;
+          width: 24px;
+          height: 24px;
+          background-color: transparent;
+          border-radius: 2px;
+        }
+        & svg {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          transition: opacity 0.2s;
+          opacity: 1;
+        }
+      }
+    }
+    &.active {
+      .btn-pause-record {
+        visibility: visible;
+        width: 46px;
+        height: 46px;
+        opacity: 1;
+      }
+      .btn-record {
+        min-width: 94px;
+        border-radius: 35px;
+        margin-left: 0;
+        height: 46px;
+        padding-top: 8px;
+        padding-left: 8px;
+
+        & > .icn-record {
+          transform: translate(0, -50%);
+          left: 10px;
+          width: 28px;
+          height: 28px;
+
+          background-color: #fff;
+
+          transition: background-color 0.2s, opacity 0.2s !important;
+          transform: none !important;
+          position: relative !important;
+          top: initial !important;
+          left: initial !important;
+
+          & > .icn-record-inner {
+            background-color: #162546;
+            width: 10px;
+            height: 10px;
+          }
+          & > svg {
+            opacity: 0;
+          }
+        }
+        & > .record-timer {
+          opacity: 1;
+          color: #999;
+        }
+      }
+    }
+  }
+
+  &__voice {
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+
+    &-picture {
+      max-width: 100%;
+      vertical-align: bottom;
+      display: block;
+    }
+
+    &-preloader {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-size: cover;
+      margin: auto;
+      position: relative;
+      background-color: var(--bg-color);
+      background-position: center center;
+
+      &::after {
+        content: "";
+        position: absolute;
+        z-index: 3;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 2px solid var(--bg-color);
+        border-top-color: var(--front-color);
+        left: 50%;
+        top: 50%;
+        margin-top: -30px;
+        margin-left: -30px;
+        animation: voice-preloader-spin 2s infinite linear;
+        box-sizing: border-box;
+      }
+    }
+  }
+
+  &__caption {
+    &[contentEditable="true"][data-placeholder]::before {
+      position: absolute !important;
+      content: attr(data-placeholder);
+      color: #707684;
+      font-weight: normal;
+      display: none;
+    }
+
+    &[contentEditable="true"][data-placeholder]:empty {
+      &::before {
+        display: block;
+      }
+
+      &:focus::before {
+        display: none;
+      }
+    }
+  }
+
+  &--empty {
+    ^&__voice {
+      display: none;
+    }
+  }
+
+  &--empty,
+  &--loading {
+    ^&__caption {
+      display: none;
+    }
+  }
+
+  &--filled {
+    .cdx-button {
+      display: none;
+    }
+
+    ^&__voice {
+      &-preloader {
+        display: none;
+      }
+    }
+  }
+
+  &--loading {
+    ^&__voice {
+      min-height: 200px;
+      display: flex;
+      border: 1px solid var(--border-color);
+      background-color: #fff;
+
+      &-picture {
+        display: none;
+      }
+    }
+
+    .cdx-button {
+      display: none;
+    }
+  }
+
+  /**
+   * Tunes
+   * ----------------
+   */
+
+  &--withBorder {
+    ^&__voice {
+      border: 1px solid var(--border-color);
+    }
+  }
+
+  &--withBackground {
+    ^&__voice {
+      padding: 15px;
+      background: var(--bg-color);
+
+      &-picture {
+        max-width: 60%;
+        margin: 0 auto;
+      }
+    }
+  }
+
+  &--stretched {
+    ^&__voice {
+      &-picture {
+        width: 100%;
+      }
+    }
+  }
+}
+
+@keyframes voice-preloader-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
