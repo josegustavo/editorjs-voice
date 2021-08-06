@@ -13,7 +13,11 @@ export default class Uploader {
    * @param {Function} params.onUpload - one callback for all uploading (file, url, d-n-d, pasting)
    * @param {Function} params.onError - callback for uploading errors
    */
-  constructor({ config, onUpload, onError }) {
+  constructor({
+    config,
+    onUpload,
+    onError
+  }) {
     this.config = config;
     this.onUpload = onUpload;
     this.onError = onError;
@@ -21,59 +25,29 @@ export default class Uploader {
 
   /**
    * Handle clicks on the upload file button
-   * Fires ajax.transport()
+   * Fires uploadByFile()
    *
+   * @param Blob blob - content
    * @param {Function} onPreview - callback fired when preview is ready
    */
-  uploadSelectedFile({ onPreview }) {
-    const preparePreview = function (file) {
-      const reader = new FileReader();
+  uploadAudioBlob(blob, { onPreview }) {
 
-      reader.readAsDataURL(file);
-      reader.onload = (e) => {
-        onPreview(e.target.result);
-      };
+    onPreview('Procesando...');
+
+    var reader = new FileReader();
+    // this function is triggered once a call to readAsDataURL returns
+    reader.onload = (event) => {
+      this.uploadByFile(event.target.result, { onPreview });
     };
-
-    /**
-     * Custom uploading
-     * or default uploading
-     */
-    let upload;
-
-    // custom uploading
-    if (this.config.uploader && typeof this.config.uploader.uploadByFile === 'function') {
-      upload = ajax.selectFiles({ accept: this.config.types }).then((files) => {
-        preparePreview(files[0]);
-
-        const customUpload = this.config.uploader.uploadByFile(files[0]);
-
-        if (!isPromise(customUpload)) {
-          console.warn('Custom uploader method uploadByFile should return a Promise');
-        }
-
-        return customUpload;
-      });
-
-    // default uploading
-    } else {
-      upload = ajax.transport({
-        url: this.config.endpoints.byFile,
-        data: this.config.additionalRequestData,
-        accept: this.config.types,
-        headers: this.config.additionalRequestHeaders,
-        beforeSend: (files) => {
-          preparePreview(files[0]);
-        },
-        fieldName: this.config.field,
-      }).then((response) => response.body);
-    }
-
-    upload.then((response) => {
-      this.onUpload(response);
-    }).catch((error) => {
-      this.onError(error);
-    });
+    reader.readAsDataURL(blob);
+    //
+    //
+    // upload.then((response) => {
+    //   this.onUpload(response);
+    // })
+    //   .catch((error) => {
+    //     this.onError(error);
+    //   });
   }
 
   /**
@@ -105,14 +79,16 @@ export default class Uploader {
         }, this.config.additionalRequestData),
         type: ajax.contentType.JSON,
         headers: this.config.additionalRequestHeaders,
-      }).then(response => response.body);
+      })
+        .then(response => response.body);
     }
 
     upload.then((response) => {
       this.onUpload(response);
-    }).catch((error) => {
-      this.onError(error);
-    });
+    })
+      .catch((error) => {
+        this.onError(error);
+      });
   }
 
   /**
@@ -128,12 +104,7 @@ export default class Uploader {
      *
      * @type {FileReader}
      */
-    const reader = new FileReader();
-
-    reader.readAsDataURL(file);
-    reader.onload = (e) => {
-      onPreview(e.target.result);
-    };
+    onPreview('Cargando...');
 
     let upload;
 
@@ -155,9 +126,10 @@ export default class Uploader {
       formData.append(this.config.field, file);
 
       if (this.config.additionalRequestData && Object.keys(this.config.additionalRequestData).length) {
-        Object.entries(this.config.additionalRequestData).forEach(([name, value]) => {
-          formData.append(name, value);
-        });
+        Object.entries(this.config.additionalRequestData)
+          .forEach(([name, value]) => {
+            formData.append(name, value);
+          });
       }
 
       upload = ajax.post({
@@ -165,14 +137,16 @@ export default class Uploader {
         data: formData,
         type: ajax.contentType.JSON,
         headers: this.config.additionalRequestHeaders,
-      }).then(response => response.body);
+      })
+        .then(response => response.body);
     }
 
     upload.then((response) => {
       this.onUpload(response);
-    }).catch((error) => {
-      this.onError(error);
-    });
+    })
+      .catch((error) => {
+        this.onError(error);
+      });
   }
 }
 

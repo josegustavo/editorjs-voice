@@ -9,9 +9,9 @@ import pausedIcon from './svg/paused-icon.svg';
  */
 export default class Ui {
   /**
-   * @param {object} ui - image tool Ui module
+   * @param {object} ui - voice tool Ui module
    * @param {object} ui.api - Editor.js API
-   * @param {ImageConfig} ui.config - user config
+   * @param {VoiceConfig} ui.config - user config
    * @param {Function} ui.onSelectFile - callback for clicks on Select file button
    * @param {boolean} ui.readOnly - read-only mode flag
    */
@@ -19,39 +19,37 @@ export default class Ui {
     api,
     config,
     toggleRecording,
+    togglePauseRecording,
     readOnly
   }) {
     this.api = api;
     this.config = config;
     this.toggleRecording = toggleRecording;
+    this.togglePauseRecording = togglePauseRecording;
     this.readOnly = readOnly;
     const timerComponent = this.createTimerElement();
+    const btnPaused = this.createBtnPausedElement();
     this.nodes = {
       wrapper: make('div', [this.CSS.baseClass, this.CSS.wrapper]),
-      imageContainer: make('div', [this.CSS.imageContainer]),
+      audioContainer: make('div', [this.CSS.audioContainer]),
       timerComponent,
-      recordComponent: this.createRecordComponent(timerComponent),
-      imageEl: undefined,
-      imagePreloader: make('div', this.CSS.imagePreloader),
-      caption: make('div', [this.CSS.input, this.CSS.caption], {
-        contentEditable: !this.readOnly,
-      }),
+      btnPaused,
+      recordComponent: this.createRecordComponent(timerComponent, btnPaused),
+      audioEl: undefined,
+      voicePreloader: make('div', this.CSS.voicePreloader),
     };
 
     /**
      * Create base structure
      *  <wrapper>
-     *    <image-container>
-     *      <image-preloader />
-     *    </image-container>
-     *    <caption />
+     *    <voice-container>
+     *      <voice-preloader />
+     *    </voice-container>
      *    <select-file-button />
      *  </wrapper>
      */
-    this.nodes.caption.dataset.placeholder = this.config.captionPlaceholder;
-    this.nodes.imageContainer.appendChild(this.nodes.imagePreloader);
-    this.nodes.wrapper.appendChild(this.nodes.imageContainer);
-    this.nodes.wrapper.appendChild(this.nodes.caption);
+    this.nodes.audioContainer.appendChild(this.nodes.voicePreloader);
+    this.nodes.wrapper.appendChild(this.nodes.audioContainer);
     this.nodes.wrapper.appendChild(this.nodes.recordComponent);
   }
 
@@ -72,10 +70,9 @@ export default class Ui {
        * Tool's classes
        */
       wrapper: 'voice-tool',
-      imageContainer: 'voice-tool__voice',
-      imagePreloader: 'voice-tool__voice-preloader',
-      imageEl: 'voice-tool__voice-picture',
-      caption: 'voice-tool__caption',
+      audioContainer: 'voice-tool__voice',
+      voicePreloader: 'voice-tool__voice-preloader',
+      audioEl: 'voice-tool__voice-picture',
     };
   };
 
@@ -122,12 +119,21 @@ export default class Ui {
     return recordTimer;
   }
 
+  createBtnPausedElement() {
+    const btnPaused = make('button', ['btn-pause-record']);
+    btnPaused.innerHTML = '<i class="icn-pause-record">' + pausedIcon + '</i>';
+    btnPaused.addEventListener('click', () => {
+      this.togglePauseRecording && this.togglePauseRecording();
+    });
+    return btnPaused;
+  }
+
   /**
    * Creates upload-file button
    *
    * @returns {Element}
    */
-  createRecordComponent(recordTimer) {
+  createRecordComponent(recordTimer, btnPaused) {
 
     const recordComponent = make('div', [this.CSS.recordComponent]);
 
@@ -150,18 +156,11 @@ export default class Ui {
     btnRecord.append(recordTimer);
     btnRecord.append(processingInfo);
 
-    const btnPaused = make('button', ['btn-pause-record']);
-    btnPaused.innerHTML = '<i class="icn-pause-record">' + pausedIcon + '</i>';
-
     recordComponent.append(btnRecord);
     recordComponent.append(btnPaused);
 
-    btnPaused.addEventListener('click', () => {
-      this.toggleRecording();
-    });
-
     btnRecord.addEventListener('click', () => {
-      this.toggleRecording();
+      this.toggleRecording && this.toggleRecording();
     });
 
     return recordComponent;
@@ -170,6 +169,7 @@ export default class Ui {
   updateTimer(value) {
     this.nodes.timerComponent.innerHTML = value;
   }
+
   /**
    * Shows uploading preloader
    *
@@ -177,8 +177,7 @@ export default class Ui {
    * @returns {void}
    */
   showPreloader(src) {
-    this.nodes.voicePreloader.style.backgroundImage = `url(${src})`;
-
+    // this.nodes.voicePreloader.innerHTML = src;
     this.toggleStatus(Ui.status.UPLOADING);
   }
 
@@ -188,7 +187,7 @@ export default class Ui {
    * @returns {void}
    */
   hidePreloader() {
-    this.nodes.voicePreloader.style.backgroundImage = '';
+    this.nodes.voicePreloader.style.backgroundVoice = '';
     this.toggleStatus(Ui.status.EMPTY);
   }
 
@@ -198,14 +197,15 @@ export default class Ui {
    * @param {string} url - voice source
    * @returns {void}
    */
-  fillImage(url) {
+  fillVoice(url) {
     /**
      * Check for a source extension to compose element correctly: video tag for mp4, img — for others
      */
-    const tag = /\.mp4$/.test(url) ? 'VIDEO' : 'IMG';
+    const tag = 'AUDIO';
 
     const attributes = {
       src: url,
+      controls: true
     };
 
     /**
@@ -215,64 +215,29 @@ export default class Ui {
      *
      * @type {string}
      */
-    let eventName = 'load';
-
-    /**
-     * Update attributes and eventName if source is a mp4 video
-     */
-    if (tag === 'VIDEO') {
-      /**
-       * Add attributes for playing muted mp4 as a gif
-       *
-       * @type {boolean}
-       */
-      attributes.autoplay = true;
-      attributes.loop = true;
-      attributes.muted = true;
-      attributes.playsinline = true;
-
-      /**
-       * Change event to be listened
-       *
-       * @type {string}
-       */
-      eventName = 'loadeddata';
-    }
-
+    let eventName = 'loadeddata';
     /**
      * Compose tag with defined attributes
      *
      * @type {Element}
      */
-    this.nodes.imageEl = make(tag, this.CSS.imageEl, attributes);
+    this.nodes.audioEl = make(tag, this.CSS.audioEl, attributes);
 
     /**
      * Add load event listener
      */
-    this.nodes.imageEl.addEventListener(eventName, () => {
+    this.nodes.audioEl.addEventListener(eventName, () => {
       this.toggleStatus(Ui.status.FILLED);
 
       /**
        * Preloader does not exists on first rendering with presaved data
        */
-      if (this.nodes.imagePreloader) {
-        this.nodes.imagePreloader.style.backgroundImage = '';
+      if (this.nodes.voicePreloader) {
+        this.nodes.voicePreloader.style.backgroundVoice = '';
       }
     });
 
-    this.nodes.imageContainer.appendChild(this.nodes.imageEl);
-  }
-
-  /**
-   * Shows caption input
-   *
-   * @param {string} text - caption text
-   * @returns {void}
-   */
-  fillCaption(text) {
-    if (this.nodes.caption) {
-      this.nodes.caption.innerHTML = text;
-    }
+    this.nodes.audioContainer.appendChild(this.nodes.audioEl);
   }
 
   /**
@@ -289,20 +254,22 @@ export default class Ui {
     }
   }
 
-  /**
-   * Apply visual representation of activated tune
-   *
-   * @param {string} tuneName - one of available tunes {@link Tunes.tunes}
-   * @param {boolean} status - true for enable, false for disable
-   * @returns {void}
-   */
-  applyTune(tuneName, status) {
-    this.nodes.wrapper.classList.toggle(`${this.CSS.wrapper}--${tuneName}`, status);
+  setActive(isActive) {
+    if (isActive) {
+      this.nodes.recordComponent.classList.add('active');
+    } else {
+      this.nodes.recordComponent.classList.remove('active');
+    }
   }
 
-  setActive() {
-    this.nodes.recordComponent.classList.add('active');
+  togglePaused(isPaused) {
+    if (isPaused) {
+      this.nodes.recordComponent.classList.add('paused');
+    } else {
+      this.nodes.recordComponent.classList.remove('paused');
+    }
   }
+
 }
 
 /**

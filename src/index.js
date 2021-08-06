@@ -33,7 +33,6 @@
 /**
  * @typedef {object} VoiceRecordData
  * @description Voice Tool's input and output data format
- * @property {string} caption — audio caption
  * @property {boolean} withBorder - should audio be rendered with border
  * @property {boolean} withBackground - should audio be rendered with background
  * @property {boolean} stretched - should audio be stretched to full width of container
@@ -56,7 +55,6 @@ import Recorder from './recorder';
  * @property {string} endpoints.byUrl - upload by URL
  * @property {string} field - field name for uploaded audio
  * @property {string} types - available mime-types
- * @property {string} captionPlaceholder - placeholder for Caption field
  * @property {object} additionalRequestData - any data to send with requests
  * @property {object} additionalRequestHeaders - allows to pass custom headers with Request
  * @property {string} buttonContent - overrides for Select File button
@@ -105,7 +103,12 @@ export default class VoiceRecord {
    * @param {object} tool.api - Editor.js API
    * @param {boolean} tool.readOnly - read-only mode flag
    */
-  constructor({ data, config, api, readOnly }) {
+  constructor({
+    data,
+    config,
+    api,
+    readOnly
+  }) {
     this.api = api;
     this.readOnly = readOnly;
 
@@ -118,7 +121,6 @@ export default class VoiceRecord {
       additionalRequestHeaders: config.additionalRequestHeaders || {},
       field: config.field || 'audio',
       types: config.types || 'audio/*',
-      captionPlaceholder: this.api.i18n.t(config.captionPlaceholder || 'Caption'),
       buttonContent: config.buttonContent || '',
       uploader: config.uploader || undefined,
       recorder: config.recorder || undefined,
@@ -136,8 +138,11 @@ export default class VoiceRecord {
 
     this.recorder = new Recorder({
       config: this.config,
-      onRecord: (response) => this.onRecord(response),
-      onError: (error) => this.recordingFailed(error),
+      onError: (error) => this.onRecorderFailed(error),
+      onStarted: () => this.onRecorderStarted(),
+      onTogglePaused: (isPaused) => this.onRecorderTogglePaused(isPaused),
+      onUpdateTimer: (timer) => this.onRecorderUpdateTimer(timer),
+      onStopped: (blob) => this.onRecorderStopped(blob),
     });
 
     /**
@@ -146,13 +151,8 @@ export default class VoiceRecord {
     this.ui = new Ui({
       api,
       config: this.config,
-      toggleRecording: () => {
-        this.recorder.toggleRecording({
-          onStarted: () => {
-            this.ui.setActive();
-          },
-        });
-      },
+      toggleRecording: () => this.recorder.toggleRecording(),
+      togglePauseRecording: () => this.recorder.togglePauseRecording(),
       readOnly,
     });
 
@@ -161,6 +161,26 @@ export default class VoiceRecord {
      */
     this._data = {};
     this.data = data;
+  }
+
+  onRecorderStarted() {
+    this.ui.setActive(true);
+  }
+
+  onRecorderUpdateTimer(value) {
+    this.ui.updateTimer(value);
+  }
+
+  onRecorderStopped(blob) {
+    this.uploader.uploadAudioBlob(blob, {
+      onPreview: (src) => {
+        this.ui.showPreloader(src);
+      },
+    });
+  }
+
+  onRecorderTogglePaused(value) {
+    this.ui.togglePaused(value);
   }
 
   /**
@@ -182,10 +202,6 @@ export default class VoiceRecord {
    * @returns {VoiceRecordData}
    */
   save() {
-    const caption = this.ui.nodes.caption;
-
-    this._data.caption = caption.innerHTML;
-
     return this.data;
   }
 
@@ -196,7 +212,6 @@ export default class VoiceRecord {
    *
    * @returns {Element}
    */
-
 
   /**
    * Fires after clicks on the Toolbox Voice Icon
@@ -219,20 +234,20 @@ export default class VoiceRecord {
       /**
        * Paste HTML into Editor
        */
-      tags: [ 'img' ],
+      tags: ['img'],
 
       /**
        * Paste URL of audio into the Editor
        */
       patterns: {
-        audio: /https?:\/\/\S+\.(gif|jpe?g|tiff|png)$/i,
+        audio: /https?:\/\/\S+\.(mp3|wav|ogg)$/i,
       },
 
       /**
        * Drag n drop file from into the Editor
        */
       files: {
-        mimeTypes: [ 'audio/*' ],
+        mimeTypes: ['audio/*'],
       },
     };
   }
@@ -293,9 +308,6 @@ export default class VoiceRecord {
   set data(data) {
     this.audio = data.file;
 
-    this._data.caption = data.caption || '';
-    this.ui.fillCaption(this._data.caption);
-
   }
 
   /**
@@ -340,6 +352,17 @@ export default class VoiceRecord {
     }
   }
 
+  onRecorderFailed(errorText) {
+    console.log('Voice Tool: recording failed because of', errorText);
+    this.api.notifier.show({
+      message: this.api.i18n.t('Couldn’t record. please give permission.'),
+      style: 'error',
+    });
+    this.ui.togglePaused(false);
+    this.ui.setActive(false);
+    this.ui.hidePreloader();
+  }
+
   /**
    * Handle uploader errors
    *
@@ -354,6 +377,8 @@ export default class VoiceRecord {
       message: this.api.i18n.t('Couldn’t upload audio. Please try another.'),
       style: 'error',
     });
+    this.ui.togglePaused(false);
+    this.ui.setActive(false);
     this.ui.hidePreloader();
   }
 
@@ -368,33 +393,6 @@ export default class VoiceRecord {
   tuneToggled(tuneName) {
     // inverse tune state
     this.setTune(tuneName, !this._data[tuneName]);
-  }
-
-  /**
-   * Set one tune
-   *
-   * @param {string} tuneName - {@link Tunes.tunes}
-   * @param {boolean} value - tune state
-   * @returns {void}
-   */
-  setTune(tuneName, value) {
-    this._data[tuneName] = value;
-
-    this.ui.applyTune(tuneName, value);
-
-    if (tuneName === 'stretched') {
-      /**
-       * Wait until the API is ready
-       */
-      Promise.resolve().then(() => {
-        const blockId = this.api.blocks.getCurrentBlockIndex();
-
-        this.api.blocks.stretchBlock(blockId, value);
-      })
-        .catch(err => {
-          console.error(err);
-        });
-    }
   }
 
   /**
